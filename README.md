@@ -179,7 +179,7 @@ yaml/                 Manifestos Kubernetes
 
 O repositório inclui um checklist com os testes do ambiente, Pods, Ingress, HPA, SQS e DynamoDB:
 
-📄 [Checklist de Demonstração - ToggleMaster](./Checklist%20de%20Demonstra%C3%A7%C3%A3o%20%E2%80%94%20ToggleMaster.pdf)
+📄 [Checklist de Demonstração - ToggleMaster](./Checklist%20de%20Demonstra%C3%A7%C3%A3o%20%E2%80%94%20ToggleMaster.md)
 
 Os endereços de recursos AWS apresentados no checklist devem ser atualizados sempre que uma nova infraestrutura for criada.
 
