@@ -1,87 +1,152 @@
-# ToggleMaster
+<div align="center">
+  <img src="https://avatars.githubusercontent.com/u/79948663?s=200&v=4" alt="FIAP" width="140">
+  <h3>Tech Challenge - Fase 2</h3>
+  <p>Pós-Tech DevOps e Arquitetura Cloud</p>
+</div>
 
-ToggleMaster é uma plataforma simples de gerenciamento e avaliação de feature flags construída com uma arquitetura de microsserviços.
+# ToggleMaster - Microsserviços em Kubernetes na AWS
 
-O projeto permite criar flags, definir regras de segmentação, avaliar se uma funcionalidade deve ser liberada para determinado usuário e armazenar eventos para análise.
+<p align="center">
+  <img src="https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white" alt="AWS">
+  <img src="https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes">
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Redis">
+  <img src="https://img.shields.io/badge/DynamoDB-4053D6?style=for-the-badge&logo=amazondynamodb&logoColor=white" alt="DynamoDB">
+</p>
 
-Projeto desenvolvido para o curso da FIAP de DevOps e Arquitetura Cloud, como parte do Tech Challenge - Fase 2.
+## 1. Sobre o projeto
 
-## Nosso Grupo
+O **ToggleMaster** é uma plataforma de gerenciamento e avaliação de **feature flags** desenvolvida como projeto acadêmico da FIAP para o Tech Challenge da Fase 2.
 
-- Larissa N.
-- Luiz F.
-- Nicholas L.
-- Thiago S.
-- Vinícius C.
+A solução permite cadastrar funcionalidades, definir regras de segmentação, decidir se uma funcionalidade deve ser liberada para determinado usuário e registrar os resultados para análise.
 
-## Arquitetura
+O sistema utiliza uma arquitetura distribuída com cinco microsserviços conteinerizados e implantados em Kubernetes na AWS.
 
-A aplicação possui cinco microsserviços independentes:
+---
 
-### Auth Service
+## 2. Microsserviços
 
-Serviço desenvolvido em Go responsável pela criação e validação de chaves de API. Os dados de autenticação são armazenados em PostgreSQL.
+| Microsserviço | Tecnologia | Responsabilidade | Integração principal |
+| :--- | :---: | :--- | :--- |
+| **auth-service** | Go 1.21 | Criação e validação de chaves de API | Amazon RDS PostgreSQL |
+| **flag-service** | Python 3.11 | Cadastro e manutenção das feature flags | Amazon RDS PostgreSQL |
+| **targeting-service** | Python 3.11 | Gerenciamento das regras de segmentação | Amazon RDS PostgreSQL |
+| **evaluation-service** | Go 1.21 | Avaliação das flags para cada usuário | ElastiCache Redis e Amazon SQS |
+| **analytics-service** | Python 3.11 | Consumo e armazenamento dos eventos de avaliação | Amazon SQS e DynamoDB |
 
-Principais endpoints:
+Cada serviço possui uma responsabilidade específica e pode ser implantado e escalado de forma independente.
 
-- `GET /health`
-- `GET /validate`
-- `POST /admin/keys`
+---
 
-### Flag Service
+## 3. Fluxo da aplicação
 
-Serviço desenvolvido em Python com Flask responsável pelo cadastro e gerenciamento das feature flags. Utiliza PostgreSQL e valida as requisições por meio do Auth Service.
-
-Principais endpoints:
-
-- `GET /health`
-- `POST /flags`
-- `GET /flags`
-- `GET /flags/{nome}`
-- `PUT /flags/{nome}`
-- `DELETE /flags/{nome}`
-
-### Targeting Service
-
-Serviço desenvolvido em Python com Flask responsável pelas regras de segmentação das flags, como liberação percentual para usuários. Utiliza PostgreSQL e autenticação fornecida pelo Auth Service.
-
-Principais endpoints:
-
-- `GET /health`
-- `POST /rules`
-- `GET /rules/{flag}`
-- `PUT /rules/{flag}`
-- `DELETE /rules/{flag}`
-
-### Evaluation Service
-
-Serviço desenvolvido em Go responsável por avaliar uma feature flag para determinado usuário. Ele consulta os serviços de flags e regras, utiliza Redis como cache e publica o resultado da avaliação em uma fila SQS.
-
-Principais endpoints:
-
-- `GET /health`
-- `GET /evaluate?user_id={usuario}&flag_name={flag}`
-
-### Analytics Service
-
-Worker desenvolvido em Python responsável por consumir os eventos enviados para a fila SQS e armazená-los em uma tabela DynamoDB. Também disponibiliza um endpoint de saúde.
-
-Principal endpoint:
-
-- `GET /health`
-
-## Fluxo da aplicação
-
-1. Uma chave de API é criada no Auth Service.
-2. Uma feature flag é cadastrada no Flag Service.
-3. Uma regra de segmentação é cadastrada no Targeting Service.
-4. O Evaluation Service recebe o usuário e o nome da flag.
-5. A definição e a regra são consultadas e armazenadas temporariamente no Redis.
+1. Uma chave de API é criada pelo `auth-service`.
+2. Uma feature flag é cadastrada no `flag-service`.
+3. Uma regra de segmentação é cadastrada no `targeting-service`.
+4. O `evaluation-service` recebe o usuário e o nome da flag.
+5. As informações são consultadas nos serviços internos e mantidas temporariamente no Redis.
 6. O resultado da avaliação é devolvido ao cliente.
-7. Um evento é enviado para o SQS.
-8. O Analytics Service consome o evento e grava os dados no DynamoDB.
+7. Um evento é enviado de forma assíncrona para o Amazon SQS.
+8. O `analytics-service` consome a mensagem e grava o evento no DynamoDB.
 
-## Tecnologias
+```text
+Cliente
+   |
+   v
+Nginx Ingress
+   |
+   +--> Auth Service ------> RDS PostgreSQL
+   +--> Flag Service ------> RDS PostgreSQL
+   +--> Targeting Service -> RDS PostgreSQL
+   +--> Evaluation Service -> ElastiCache Redis
+                  |
+                  v
+             Amazon SQS
+                  |
+                  v
+          Analytics Service
+                  |
+                  v
+             DynamoDB
+```
+
+---
+
+## 4. Infraestrutura AWS
+
+A solução foi preparada para utilizar os seguintes serviços:
+
+- **Amazon EKS:** execução e gerenciamento do cluster Kubernetes.
+- **Amazon ECR:** armazenamento das cinco imagens Docker.
+- **Amazon RDS:** três bancos PostgreSQL independentes para autenticação, flags e targeting.
+- **Amazon ElastiCache:** cache Redis utilizado pelo serviço de avaliação.
+- **Amazon SQS:** comunicação assíncrona entre evaluation e analytics.
+- **Amazon DynamoDB:** armazenamento dos eventos de avaliação.
+- **Elastic Load Balancing:** ponto de entrada externo criado pelo Nginx Ingress Controller.
+
+O acesso de workloads aos serviços AWS utiliza Service Accounts próprias, evitando armazenar credenciais AWS diretamente nas aplicações.
+
+---
+
+## 5. Kubernetes
+
+Cada aplicação está isolada em seu próprio namespace:
+
+| Namespace | Aplicação |
+| :--- | :--- |
+| `auth` | auth-service |
+| `flag` | flag-service |
+| `targeting` | targeting-service |
+| `evaluation` | evaluation-service |
+| `analytics` | analytics-service |
+
+Os manifestos incluem:
+
+- Deployments para gerenciamento dos Pods.
+- Services do tipo ClusterIP para comunicação interna.
+- ConfigMaps para configurações não sensíveis.
+- Secrets com valores codificados em base64.
+- Readiness e Liveness Probes.
+- Requests e Limits de CPU e memória.
+- Jobs para inicialização das tabelas PostgreSQL.
+- Ingress para acesso externo.
+- Horizontal Pod Autoscaler para escalabilidade automática.
+
+---
+
+## 6. Rotas externas
+
+O Nginx Ingress Controller centraliza o acesso às aplicações.
+
+| Rota | Serviço | Porta |
+| :--- | :--- | :---: |
+| `/auth` | auth-service | 8001 |
+| `/flags` | flag-service | 8002 |
+| `/rules` | targeting-service | 8003 |
+| `/evaluate` | evaluation-service | 8004 |
+| `/analytics` | analytics-service | 8005 |
+
+Todos os microsserviços possuem um endpoint `/health`, utilizado pelo Kubernetes para verificar se a aplicação está disponível.
+
+---
+
+## 7. Escalabilidade
+
+O projeto utiliza o **Horizontal Pod Autoscaler (HPA)** com métricas fornecidas pelo Kubernetes Metrics Server.
+
+| Serviço | Réplicas mínimas | Réplicas máximas | Meta de CPU |
+| :--- | :---: | :---: | :---: |
+| evaluation-service | 2 | 10 | 70% |
+| analytics-service | 1 | 10 | 70% |
+
+O `evaluation-service` aumenta a quantidade de Pods quando recebe muitas avaliações. O `analytics-service` pode escalar quando o processamento das mensagens aumenta seu consumo de CPU.
+
+---
+
+## 8. Tecnologias
 
 - Go
 - Python
@@ -89,48 +154,45 @@ Principal endpoint:
 - Gunicorn
 - Docker
 - Kubernetes
-- Amazon EKS
-- Amazon ECR
-- Amazon RDS for PostgreSQL
-- Amazon ElastiCache for Redis
-- Amazon SQS
-- Amazon DynamoDB
 - Nginx Ingress Controller
 - Kubernetes Metrics Server
+- PostgreSQL
+- Redis
+- Amazon Web Services
 
-## Kubernetes
+---
 
-Cada microsserviço possui seu próprio namespace:
-
-- `auth`
-- `flag`
-- `targeting`
-- `evaluation`
-- `analytics`
-
-Os manifestos incluem Deployments, Services do tipo ClusterIP, Secrets, ConfigMaps, probes de saúde e limites de recursos.
-
-O acesso externo é feito pelo Nginx Ingress nas seguintes rotas:
-
-- `/auth`
-- `/flags`
-- `/rules`
-- `/evaluate`
-- `/analytics`
-
-Os serviços de avaliação e analytics utilizam Horizontal Pod Autoscaler baseado no consumo de CPU, com meta de 70%.
-
-## Estrutura
+## 9. Estrutura do repositório
 
 ```text
-analytics-service/    Consumo de eventos e gravação no DynamoDB
-auth-service/         Criação e validação de chaves de API
+analytics-service/    Worker de eventos e integração com DynamoDB
+auth-service/         Autenticação e gerenciamento de chaves de API
 evaluation-service/   Avaliação das feature flags
-flag-service/         Gerenciamento das feature flags
-targeting-service/    Gerenciamento das regras de segmentação
+flag-service/         CRUD das feature flags
+targeting-service/    Regras de segmentação
 yaml/                 Manifestos Kubernetes
 ```
 
-## Saúde dos serviços
+---
 
-Todos os microsserviços possuem um endpoint `/health`, utilizado pelas probes do Kubernetes para verificar se as aplicações estão disponíveis.
+## 10. Checklist de demonstração
+
+O repositório inclui um checklist com os testes do ambiente, Pods, Ingress, HPA, SQS e DynamoDB:
+
+📄 [Checklist de Demonstração - ToggleMaster](./Checklist%20de%20Demonstra%C3%A7%C3%A3o%20%E2%80%94%20ToggleMaster.pdf)
+
+Os endereços de recursos AWS apresentados no checklist devem ser atualizados sempre que uma nova infraestrutura for criada.
+
+---
+
+## 11. Nosso grupo
+
+- Larissa N.
+- Luiz F.
+- Nicholas L.
+- Thiago S.
+- Vinícius C.
+
+<div align="center">
+  <strong>FIAP - Pós-Tech DevOps e Arquitetura Cloud - Tech Challenge Fase 2</strong>
+</div>
