@@ -185,7 +185,15 @@ Os endereços de recursos AWS apresentados no checklist devem ser atualizados se
 
 ---
 
-## 11. Nosso grupo
+## 11. Demonstração em vídeo
+
+O funcionamento da aplicação, a infraestrutura na AWS e os testes de escalabilidade podem ser acompanhados no vídeo de demonstração:
+
+▶️ [Assistir ao vídeo no YouTube](https://youtu.be/wJyUsJrKGtI)
+
+---
+
+## 12. Nosso grupo
 
 - Larissa N.
 - Luiz F.
